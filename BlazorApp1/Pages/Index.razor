@@ -1,0 +1,194 @@
+﻿@page "/"
+
+@using BlazorApp1.Data
+@inject PersonService ps
+
+<h3>Simulation 01</h3>
+<style type="text/css">
+    .grid {
+        border-collapse: collapse;
+        font-size: .7em;
+    }
+
+        .grid td {
+            border: 1px solid #e3e3e3;
+            padding: .1em;
+        }
+
+        .grid .d { /* Deceased */
+            background-color: black;
+            color: white;
+        }
+
+        .grid .i,
+        .grid .qi { /* Infected */
+            background-color: #ff7777;
+        }
+
+        .grid .qi,
+        .grid .qm,
+        .grid .qs { /* Infected, quarantined */
+            border: 2px solid #000;
+        }
+
+        .grid .m,
+        .grid .qm { /* Infected - mild */
+            background-color: #ffaaaa;
+        }
+
+        .grid .s,
+        .grid .qs { /* Infected - Severe */
+            background-color: #ff0000;
+        }
+
+        .grid .h { /* Healthy */
+            background-color: white;
+        }
+
+        .grid .r { /* Recovered */
+            background-color: forestgreen;
+        }
+
+        .grid .v { /* Vaccinated */
+            background-color: #e3e3e3;
+            color: #777;
+        }
+</style>
+
+@if (people == null)
+{
+    <div>loading...</div>
+}
+else
+{
+    <p>Run scenario:</p>
+    <button class="hippie" @onclick="runHippie">Nothing to worry about, bro.  Just chill...<br /><img src="chillax2.jpg" height="180" /></button>
+    <button class="biohazdefcon1" @onclick="runPanic">[PANDEMIC] initiate bunker hermetic seal protocol!<br /><img src="biosuit.jpg" height="180" /></button>
+
+    <EditForm Model="@state" OnSubmit="RestartSim">
+        <div>R-value: <InputNumber @bind-Value="state.RValue"></InputNumber></div>
+        <div>Severe case rate: <InputNumber @bind-Value="state.SeverityRateFatal"></InputNumber></div>
+        <div>Mortality rate for severe cases: <InputNumber @bind-Value="state.SeverityRateFatal"></InputNumber></div>
+        <div>Mortality rate for mild cases: <InputNumber @bind-Value="state.MortalityRateMildCases"></InputNumber></div>
+        <div>Infection Duration: <InputNumber @bind-Value="state.InfectionDurationDays"></InputNumber></div>
+        <div>Vaccination Rate: <InputNumber @bind-Value="state.VaccinationRate"></InputNumber></div>
+        <div>Quaranine rate for presenting cases: <InputNumber @bind-Value="state.QuarantineRate"></InputNumber></div>
+        <input type="submit" value="Rerun" class="btn btn-primary" />
+    </EditForm>
+    @*<button class="btn btn-primary" @onclick="RunSim">Run</button>*@
+    <div>Days since start: @state.CurrentDateTime.Subtract(state.SimStart).TotalDays.ToString()</div>
+    <div>Hospital Capacity: @state.RunningHospitalCapacity.ToString("P1")</div>
+    <div>Deaths: @state.RunningDeathsTotal.ToString(); Death Rate: @state.RunningResolvedDeathRate.ToString("P1")</div>
+    <br />
+    <div>Key:</div>
+    <table class="grid">
+        <tr>
+            <td class="h">healthy/uninfected</td>
+            <td class="r">recovered</td>
+            <td class="v">vaccinated</td>
+        </tr>
+        <tr>
+            <td class="i">infected (incubation)</td>
+            <td class="m">infected - mild symtoms</td>
+            <td class="s">infected - severe symtoms</td>
+        </tr>
+        <tr>
+            <td class="qi">infected (incubation)/quarantined</td>
+            <td class="qm">infected - mild symtoms/quarantined</td>
+            <td class="qs">infected - severe symtoms/quarantined</td>
+            <td class="d">deceased</td>
+        </tr>
+    </table>
+    <br />
+    <table class="grid">
+        @for (int i = 0; i < people.Length; i += gridwidth)
+        {
+            <tr>
+                @for (int j = 0; j < gridwidth; j++)
+                {
+                    var local1 = people[i + j];
+                    <td class="@local1.getCode()">@local1.ToString("age")</td>
+                }
+            </tr>
+        }
+    </table>
+}
+
+
+@code {
+    // the width of the grid
+    private int gridwidth = 40;
+    private int populationCount = 1600;
+    private int personsPerIcuBed = 20;
+
+    private State state;
+
+    private Person[] people;
+
+    private System.Timers.Timer timer = new System.Timers.Timer(500);
+
+    void runHippie() { state.RValue = 9.0f; state.QuarantineRate = .1f; RestartSim(); }
+    void runPanic() { state.RValue = 1.3f; state.QuarantineRate = .9f; RestartSim(); }
+
+    protected override void OnInitialized()
+    {
+        timer.Elapsed += new System.Timers.ElapsedEventHandler(TimerTick);
+        timer.Start();
+        base.OnInitialized();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        state = new State
+        {
+            CurrentDateTime = new DateTime(2020, 03, 10),
+            SimStart = new DateTime(2020, 03, 10),
+            HoursFromInfectionToContegeousness = 24,
+            InfectionDurationDays = 30,
+            RValue = 2.2f,
+            SeverityRate = .20f,
+            SeverityRateFatal = .25f,
+            HospitalIntensiveTreatementCapacity = (populationCount / personsPerIcuBed),
+            InfectionIncubationDurationDays = 14,
+            MortalityRateMildCases = 0.002f,
+            VaccinationRate = 0.0f,
+            QuarantineRate = .6f
+        };
+
+        people = await ps.GetPeopleAsync(state, populationCount);
+        //return base.OnInitializedAsync();
+    }
+
+    void TimerTick(object sender, System.Timers.ElapsedEventArgs args)
+    {
+        timer.Stop();
+
+        // Run the simulation
+        RunSim();
+
+        // Indicate to the page that the state has changed, and the view needs to update.
+        InvokeAsync(() => StateHasChanged());
+
+        // Restart if any people are still infected.
+        if (people.Any(x => x.IsInfected()))
+            timer.Start();
+    }
+
+
+    private void RestartSim()
+    {
+        state.Restart();
+        Restart();
+        timer.Start();
+    }
+
+    private async void Restart()
+    {
+        people = await ps.GetPeopleAsync(state, populationCount);
+    }
+
+    private void RunSim()
+    {
+        state.RunModel(people, new TimeSpan(24, 0, 0));
+    }
+}
