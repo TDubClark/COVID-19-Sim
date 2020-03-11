@@ -3,7 +3,38 @@
 @using BlazorApp1.Data
 @inject PersonService ps
 
-<h3>Simulation 01</h3>
+<h3>COVID-19 Simulation 0.1</h3>
+<p>This is a simplistic simulation of COVID-19 transmission (MIT License, <a target="_blank" href="https://github.com/TDubClark/COVID-19-Sim">GitHub</a>).  It is a work in progress.</p>
+<p>I wanted to demonstrate the importance of preventative measures; it can slow transmission and save lives.</p>
+<p>
+    There is no way to be "correct":<br>
+    If we treat this disease with an abundance of caution, it will turn out to be less serious than we anticipated.<br>
+    If we disregard the gravity of this pandemic, it will turn out much worse than expected.
+</p>
+<p>
+    However, if we panic and stop looking out for other people, it may reduce the communicability of this disease;
+    but it will exacerbate all manner of other problems and increase other risks to life and health.
+</p>
+<ol class="list">
+    <li>
+        <strong>Stop airborne spread (most important):</strong>
+        <ol>
+            <li>cover your cough or sneeze, ideally in a tissue which is immediately thrown away</li>
+            <li>practice "social distancing" - try to stay at least 6 feet from other people.  The virus doesn't project too far, but in some cases it can linger for 30 minutes in the air</li>
+        </ol>
+    </li>
+    <li>
+        <strong>Stop contact spread:</strong>
+        <ol>
+            <li>wash your hands very well and often (20 seconds)</li>
+            <li>avoid touching your face (eyes, nose, mouth) unless you wash your hands before and after</li>
+        </ol>
+    </li>
+    <li>Help anyone you know stay comfortable in quarantine; it's hard, so talk with them (from a distance) and help them with groceries.</li>
+    <li>Find ways to help neighbors, friends, schools, and hospitals</li>
+    <li>Go here: <a target="_blank" href="https://www.cdc.gov/coronavirus/2019-ncov/index.html">https://www.cdc.gov/coronavirus/2019-ncov/index.html</a> for better information.</li>
+</ol>
+<p>If you see someone failing to follow the recommendations, please encourage them to be more careful.</p>
 <style type="text/css">
     .grid {
         border-collapse: collapse;
@@ -61,73 +92,93 @@
 }
 else
 {
-    <p>Run scenario:</p>
-    <button class="hippie" @onclick="runHippie">Nothing to worry about, bro.  Just chill...<br /><img src="chillax2.jpg" height="180" /></button>
-    <button class="biohazdefcon1" @onclick="runPanic">[PANDEMIC] initiate bunker hermetic seal protocol!<br /><img src="biosuit.jpg" height="180" /></button>
-
-    <EditForm Model="@state" OnSubmit="RestartSim">
-        <div>R-value: <InputNumber @bind-Value="state.RValue"></InputNumber></div>
-        <div>Severe case rate: <InputNumber @bind-Value="state.SeverityRateFatal"></InputNumber></div>
-        <div>Mortality rate for severe cases: <InputNumber @bind-Value="state.SeverityRateFatal"></InputNumber></div>
-        <div>Mortality rate for mild cases: <InputNumber @bind-Value="state.MortalityRateMildCases"></InputNumber></div>
-        <div>Infection Duration: <InputNumber @bind-Value="state.InfectionDurationDays"></InputNumber></div>
-        <div>Vaccination Rate: <InputNumber @bind-Value="state.VaccinationRate"></InputNumber></div>
-        <div>Quaranine rate for presenting cases: <InputNumber @bind-Value="state.QuarantineRate"></InputNumber></div>
-        <input type="submit" value="Rerun" class="btn btn-primary" />
-    </EditForm>
-    @*<button class="btn btn-primary" @onclick="RunSim">Run</button>*@
-    <div>Days since start: @state.CurrentDateTime.Subtract(state.SimStart).TotalDays.ToString()</div>
-    <div>Hospital Capacity: @state.RunningHospitalCapacity.ToString("P1")</div>
-    <div>Deaths: @state.RunningDeathsTotal.ToString(); Death Rate: @state.RunningResolvedDeathRate.ToString("P1")</div>
-    <br />
-    <div>Key:</div>
-    <table class="grid">
-        <tr>
-            <td class="h">healthy/uninfected</td>
-        </tr>
-        <tr>
-            <td class="r">recovered</td>
-        </tr>
-        <tr>
-            <td class="v">vaccinated</td>
-        </tr>
-        <tr>
-            <td class="i">infected (incubation)</td>
-        </tr>
-        <tr>
-            <td class="m">infected - mild symtoms</td>
-        </tr>
-        <tr>
-            <td class="s">infected - severe symtoms</td>
-        </tr>
-        <tr>
-            <td class="qi">infected (incubation)/quarantined</td>
-        </tr>
-        <tr>
-            <td class="qm">infected - mild symtoms/quarantined</td>
-        </tr>
-        <tr>
-            <td class="qs">infected - severe symtoms/quarantined</td>
-        </tr>
-        <tr>
-            <td class="d">deceased</td>
-        </tr>
-    </table>
-    <br />
-    <table class="grid">
-        @for (int i = 0; i < people.Length; i += gridwidth)
-        {
-            <tr>
-                @for (int j = 0; j < gridwidth; j++)
+    <div style="border: 1px solid #e3e3e3; padding: .5em; margin: .5em; width: 50%">
+        <p>Run scenario - select public reaction to the disease:</p>
+        <button class="hippie" @onclick="runHippie">@*Nothing to worry about, bro.  Just chill...<br />*@<img src="chillax2.jpg" height="180" /></button>
+        <button class="biohazdefcon1" @onclick="runPanic">@*[PANDEMIC] initiate bunker hermetic seal protocol!<br />*@<img src="biosuit.jpg" height="180" /></button>
+    </div>
+    <div>
+        <div style="width: 50%; float: left;">
+            @*<button class="btn btn-primary" @onclick="RunSim">Run</button>*@
+            <p>Each cell represents a person, given by their age; color-coding indicates health status.</p>
+            <p>This model assumes that if hospitals reach capacity, they will triage out the oldest patients.  However, it does not take into account hospital worker stress - hospitals cannot operate at full capacity for very long, something which would contribute to an even higher mortality rate in the relaxed scenario.</p>
+            <p></p>
+            <table class="grid">
+                @for (int i = 0; i < people.Length; i += gridwidth)
                 {
-                    var local1 = people[i + j];
-                    <td class="@local1.getCode()">@local1.ToString("age")</td>
+                    <tr>
+                        @for (int j = 0; j < gridwidth; j++)
+                        {
+                            var local1 = people[i + j];
+                            <td class="@local1.getCode()">@local1.ToString("age")</td>
+                        }
+                    </tr>
                 }
-            </tr>
-        }
-    </table>
-}
+            </table>
+        </div>
+        <div style="width: 50%; float: right;">
+            <div>Days since start: @state.CurrentDateTime.Subtract(state.SimStart).TotalDays.ToString()</div>
+            <div>Hospital Capacity: @state.RunningHospitalCapacity.ToString("P1")</div>
+            <div>Deaths: @state.RunningDeathsTotal.ToString(); Death Rate: @state.RunningResolvedDeathRate.ToString("P1")</div>
+            <br />
+            <div>Key:</div>
+            <table class="grid">
+                <tr>
+                    <td class="h">healthy/uninfected</td>
+                </tr>
+                <tr>
+                    <td class="r">recovered</td>
+                </tr>
+                <tr>
+                    <td class="v">vaccinated</td>
+                </tr>
+                <tr>
+                    <td class="i">infected (incubation)</td>
+                </tr>
+                <tr>
+                    <td class="m">infected - mild symtoms</td>
+                </tr>
+                <tr>
+                    <td class="s">infected - severe symtoms</td>
+                </tr>
+                <tr>
+                    <td class="qi">infected (incubation)/quarantined</td>
+                </tr>
+                <tr>
+                    <td class="qm">infected - mild symtoms/quarantined</td>
+                </tr>
+                <tr>
+                    <td class="qs">infected - severe symtoms/quarantined</td>
+                </tr>
+                <tr>
+                    <td class="d">deceased</td>
+                </tr>
+            </table>
+            <br /><br />
+            <EditForm Model="@state" OnSubmit="RestartSim">
+                <div>R-value: <InputNumber @bind-Value="state.RValue"></InputNumber></div>
+                <div>Severe case rate: <InputNumber @bind-Value="state.SeverityRateFatal"></InputNumber></div>
+                <div>Mortality rate for severe cases: <InputNumber @bind-Value="state.SeverityRateFatal"></InputNumber></div>
+                <div>Mortality rate for mild cases: <InputNumber @bind-Value="state.MortalityRateMildCases"></InputNumber></div>
+                <div>Infection Duration: <InputNumber @bind-Value="state.InfectionDurationDays"></InputNumber></div>
+                <div>Vaccination Rate: <InputNumber @bind-Value="state.VaccinationRate"></InputNumber></div>
+                <div>Quaranine rate for presenting cases: <InputNumber @bind-Value="state.QuarantineRate"></InputNumber></div>
+                <input type="submit" value="Rerun" class="btn btn-primary" />
+            </EditForm>
 
+        </div>
+    </div>
+}
+<div style="display: block; width: 100%;">
+    <p>
+        Notes:<br>
+        This is not a proper model - it is more a proof-of-concept.<br>
+        If you want know how it works (as it were), you can view the source here: <a target="_blank" href="https://github.com/TDubClark/COVID-19-Sim">https://github.com/TDubClark/COVID-19-Sim</a><br>
+        If you have any brainwaves about how to improve the UI or the model, please contribute or fork the repository.<br />
+        I'd be quite happy if others were able to expand this into a more useful education tool.
+    </p>
+    <p>Comments to me: twclark.depauw2007@gmail.com</p>
+</div>
 
 @code {
     // the width of the grid
